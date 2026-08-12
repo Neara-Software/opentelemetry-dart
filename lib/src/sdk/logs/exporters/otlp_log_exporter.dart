@@ -114,7 +114,7 @@ class OTLPLogExporter implements sdk.LogRecordExporter {
 
   pb_logs.LogRecord _logToProtobuf(sdk.ReadableLogRecord log) {
     return pb_logs.LogRecord(
-      timeUnixNano: Int64(log.timeStamp.microsecondsSinceEpoch),
+      timeUnixNano: _toUnixNano(log.timeStamp),
       severityNumber: pg_logs_enum.SeverityNumber.valueOf(log.severityNumber.index),
       severityText: log.severityText,
       droppedAttributesCount: log.droppedAttributesCount,
@@ -123,9 +123,13 @@ class OTLPLogExporter implements sdk.LogRecordExporter {
           .map((key) => pb_common.KeyValue(key: key, value: _attributeValueToProtobuf(log.attributes.get(key)!))),
       spanId: log.spanContext.spanId.get(),
       traceId: log.spanContext.traceId.get(),
-      observedTimeUnixNano: Int64(log.observedTimestamp.microsecondsSinceEpoch),
+      observedTimeUnixNano: _toUnixNano(log.observedTimestamp),
     );
   }
+
+  /// OTLP expects timestamps in nanoseconds since Unix Epoch, while [DateTime]
+  /// only resolves to microseconds.
+  static Int64 _toUnixNano(DateTime time) => Int64(time.microsecondsSinceEpoch) * 1000;
 
   pb_common.AnyValue _attributeONEValueToProtobuf(Object value) {
     switch (value.runtimeType) {
