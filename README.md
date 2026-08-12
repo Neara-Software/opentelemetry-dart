@@ -14,8 +14,8 @@ This repository is the Dart implementation of the [OpenTelemetry project](https:
 
 This section will show you how to initialize the OpenTelemetry SDK, capture a span, and propagate context.
 
-### Tacers
-### Initialize the OpenTelemetry SDK
+### Tracers
+#### Initialize the OpenTelemetry SDK
 
 ```dart
 import 'package:opentelemetry/sdk.dart'
@@ -40,7 +40,7 @@ void main(List<String> args) {
 }
 ```
 
-### Capture a Span
+#### Capture a Span
 
 ```dart
 import 'package:opentelemetry/api.dart' show StatusCode, globalTracerProvider;
@@ -69,37 +69,51 @@ void main(List<String> args) {
 ```dart
 import 'package:opentelemetry/sdk.dart'
     show
-    BatchLogRecordProcessor,
+        BatchLogRecordProcessor,
+        ConsoleLogRecordExporter,
+        LoggerProvider,
         OTLPLogExporter,
-        ConsoleExporter,
-        SimpleLogRecordProcessor,
-        TracerProviderBase;
+        SimpleLogRecordProcessor;
 import 'package:opentelemetry/api.dart'
     show registerGlobalLogProvider, globalLogProvider;
 
 void main(List<String> args) {
-  final logProvider = TracerProviderBase(processors: [
+  final loggerProvider = LoggerProvider(processors: [
     BatchLogRecordProcessor(
-        OTLPLogExporter(Uri.parse('https://my-collector.com/v1/traces'))),
-    SimpleLogRecordProcessor(ConsoleLogRecordExporter())
+        exporter: OTLPLogExporter(Uri.parse('https://my-collector.com/v1/logs'))),
+    SimpleLogRecordProcessor(exporter: ConsoleLogRecordExporter())
   ]);
 
-  registerGlobalLogProvider(logProvider);
-  final tracer = globalLogProvider.get('logger-name');
+  registerGlobalLogProvider(loggerProvider);
+  final logger = globalLogProvider.get('logger-name');
 }
 ```
 
-### Capture a Log 
+#### Capture a Log
+
 ```dart
-import 'package:opentelemetry/api.dart' show StatusCode, globalLogProvider;
+import 'package:opentelemetry/api.dart' show Attribute, Severity, globalLogProvider;
 
 void main(List<String> args) {
   final logger = globalLogProvider.get('logger-name');
 
-  logger.emit(body: "Hello World!");
+  logger.emit(
+    body: 'Hello World!',
+    severityNumber: Severity.info,
+    severityText: 'INFO',
+    attributes: [Attribute.fromString('user.id', '42')],
+  );
 }
 ```
 
+A record emitted while a span is active picks up that span's trace and span ids,
+which is what correlates logs with traces in a backend.
+
+`LoggerProvider.forceFlush` and `LoggerProvider.shutdown` are both awaitable —
+await one of them before the process exits, or records still buffered by
+`BatchLogRecordProcessor` are lost.
+
+See [example/logs.dart](example/logs.dart) for a complete, compiling example.
 
 
 ### Propagate Context
