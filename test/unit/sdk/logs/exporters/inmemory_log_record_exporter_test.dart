@@ -19,9 +19,7 @@ void main() {
       logRecordLimits: LogRecordLimits(),
       timeProvider: FakeTimeProvider(now: Int64(123)),
       resource: sdk.Resource([api.Attribute.fromString('resource.name', 'test')]),
-    )
-      ..makeReadonly()
-      ..body = 'Log Message';
+    )..body = 'Log Message';
 
     await exporter.export([logRecord]);
 
