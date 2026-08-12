@@ -53,7 +53,7 @@ class ConsoleLogRecordExporter implements sdk.LogRecordExporter {
       'severityNumber': log.severityNumber,
       'body': log.body,
       'attributes': {
-        for (final attribute in log.attributes.keys) attribute: log.resource.attributes.get(attribute),
+        for (final attribute in log.attributes.keys) attribute: log.attributes.get(attribute),
       },
       ...contextInfo,
     };

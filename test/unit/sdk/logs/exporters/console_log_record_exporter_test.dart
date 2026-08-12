@@ -33,13 +33,15 @@ void main() {
             logRecordLimits: LogRecordLimits(),
             timeProvider: timeProvider,
             resource: sdk.Resource([api.Attribute.fromString('resource.name', 'test')]),
-          )..body = 'Log Message';
+          )
+            ..body = 'Log Message'
+            ..setAttribute(api.Attribute.fromString('log.key', 'log.value'));
           final spanContext = parent.spanContext;
 
           await exporter.export([logRecord]);
 
           expect(log, [
-            '{resource: {attributes: {resource.name: test}}, instrumentationScope: {name: library_name, version: library_version, schemaUrl: url://schema, attributes: {}}, timestamp: ${DateTime.fromMicrosecondsSinceEpoch(timeProvider.now.toInt() ~/ 1000)}, severityText: ${severityDefault.name}, severityNumber: $severityDefault, body: Log Message, attributes: {}, traceId: ${spanContext.traceId}, spanId: ${spanContext.spanId}, traceFlags: ${spanContext.traceFlags}}'
+            '{resource: {attributes: {resource.name: test}}, instrumentationScope: {name: library_name, version: library_version, schemaUrl: url://schema, attributes: {}}, timestamp: ${DateTime.fromMicrosecondsSinceEpoch(timeProvider.now.toInt() ~/ 1000)}, severityText: ${severityDefault.name}, severityNumber: $severityDefault, body: Log Message, attributes: {log.key: log.value}, traceId: ${spanContext.traceId}, spanId: ${spanContext.spanId}, traceFlags: ${spanContext.traceFlags}}'
           ]);
 
           await exporter.shutdown();
