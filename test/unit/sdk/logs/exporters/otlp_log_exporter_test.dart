@@ -5,6 +5,7 @@
 import 'dart:typed_data';
 
 import 'package:fixnum/fixnum.dart';
+import 'package:http/http.dart' as http;
 import 'package:mocktail/mocktail.dart';
 import 'package:opentelemetry/api.dart' as api;
 import 'package:opentelemetry/sdk.dart' as sdk;
@@ -22,6 +23,11 @@ import '../../../mocks.dart';
 void main() {
   late MockHttpClient mockClient;
   final uri = Uri.parse('https://h.wdesk.org/s/opentelemetry-collector/v1/traces');
+
+  setUpAll(() {
+    registerFallbackValue(Uri.parse('https://example.com'));
+    registerFallbackValue(<String, String>{});
+  });
 
   setUp(() {
     mockClient = MockHttpClient();
@@ -233,5 +239,78 @@ void main() {
     sdk.OTLPLogExporter(uri, httpClient: mockClient, headers: suppliedHeaders).export([log1]);
 
     verify(() => mockClient.post(uri, body: anything, headers: expectedHeaders)).called(1);
+  });
+
+  group('failure reporting', () {
+    sdk.LogRecord newRecord({dynamic body = 'test log'}) => sdk.LogRecord(
+          instrumentationScope: sdk.InstrumentationScope('library_name', 'library_version', 'url://schema', []),
+          logRecordLimits: LogRecordLimits(),
+          body: body,
+          timeProvider: FakeTimeProvider(now: Int64(123)),
+        );
+
+    void stubPost(int statusCode) {
+      when(() => mockClient.post(any(), body: any(named: 'body'), headers: any(named: 'headers')))
+          .thenAnswer((_) async => http.Response('', statusCode));
+    }
+
+    test('reports success when the collector accepts the batch', () async {
+      stubPost(200);
+
+      final result = await sdk.OTLPLogExporter(uri, httpClient: mockClient).export([newRecord()]);
+
+      expect(result.code, sdk.ExportResultCode.success);
+    });
+
+    test('reports failure when the collector rejects the batch', () async {
+      stubPost(503);
+
+      // Previously _send swallowed every failure, so a rejected batch was
+      // reported to the processor as a successful export and silently lost.
+      final result = await sdk.OTLPLogExporter(uri, httpClient: mockClient).export([newRecord()]);
+
+      expect(result.code, sdk.ExportResultCode.failed);
+      expect(result.error, isNotNull);
+    });
+
+    test('reports failure when the transport throws', () async {
+      when(() => mockClient.post(any(), body: any(named: 'body'), headers: any(named: 'headers')))
+          .thenThrow(Exception('connection refused'));
+
+      final result = await sdk.OTLPLogExporter(uri, httpClient: mockClient).export([newRecord()]);
+
+      expect(result.code, sdk.ExportResultCode.failed);
+      expect(result.error, isNotNull);
+    });
+
+    test('exports a record with no body', () async {
+      stubPost(200);
+
+      // A null body used to throw 'Null is not a subtype of Object' while
+      // building the payload, dropping the whole batch as a false success.
+      final result = await sdk.OTLPLogExporter(uri, httpClient: mockClient).export([newRecord(body: null)]);
+
+      expect(result.code, sdk.ExportResultCode.success);
+      final captured = verify(() =>
+              mockClient.post(uri, body: captureAny(named: 'body'), headers: any(named: 'headers')))
+          .captured;
+      final request = pb_log_service.ExportLogsServiceRequest.fromBuffer(captured[0] as Uint8List);
+      expect(request.resourceLogs.single.scopeLogs.single.logRecords.single.hasBody(), isFalse);
+    });
+
+    test('falls back to a string body for values with no OTLP equivalent', () async {
+      stubPost(200);
+
+      final result = await sdk.OTLPLogExporter(uri, httpClient: mockClient).export([
+        newRecord(body: {'a': 1})
+      ]);
+
+      expect(result.code, sdk.ExportResultCode.success);
+      final captured = verify(() =>
+              mockClient.post(uri, body: captureAny(named: 'body'), headers: any(named: 'headers')))
+          .captured;
+      final request = pb_log_service.ExportLogsServiceRequest.fromBuffer(captured[0] as Uint8List);
+      expect(request.resourceLogs.single.scopeLogs.single.logRecords.single.body.stringValue, '{a: 1}');
+    });
   });
 }

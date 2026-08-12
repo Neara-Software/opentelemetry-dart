@@ -3,7 +3,12 @@
 
 class ExportResult {
   final ExportResultCode code;
-  final Exception? error;
+
+  /// Deliberately [Object] rather than [Exception]: exporters can fail with an
+  /// [Error] too, and narrowing this would turn such a failure into a second,
+  /// more confusing `TypeError` when the result is constructed.
+  final Object? error;
+
   final StackTrace? stackTrace;
 
   ExportResult({required this.code, this.error, this.stackTrace});

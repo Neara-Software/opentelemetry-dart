@@ -67,9 +67,15 @@ class OTLPLogExporter implements sdk.LogRecordExporter {
 
       final headers = {'Content-Type': 'application/x-protobuf'}..addAll(this.headers);
 
-      await client.post(uri, body: body.writeToBuffer(), headers: headers);
+      final response = await client.post(uri, body: body.writeToBuffer(), headers: headers);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('Collector responded with HTTP status code ${response.statusCode}');
+      }
     } catch (e) {
+      // Log for visibility, but rethrow so that [export] reports the failure to
+      // its caller instead of silently claiming success.
       _log.warning('Failed to export ${logRecords.length} logs.', e);
+      rethrow;
     }
   }
 
@@ -118,7 +124,7 @@ class OTLPLogExporter implements sdk.LogRecordExporter {
       severityNumber: pg_logs_enum.SeverityNumber.valueOf(log.severityNumber.index),
       severityText: log.severityText,
       droppedAttributesCount: log.droppedAttributesCount,
-      body: _attributeONEValueToProtobuf(log.body),
+      body: log.body == null ? null : _bodyToProtobuf(log.body as Object),
       attributes: log.attributes.keys
           .map((key) => pb_common.KeyValue(key: key, value: _attributeValueToProtobuf(log.attributes.get(key)!))),
       spanId: log.spanContext.spanId.get(),
@@ -131,18 +137,12 @@ class OTLPLogExporter implements sdk.LogRecordExporter {
   /// only resolves to microseconds.
   static Int64 _toUnixNano(DateTime time) => Int64(time.microsecondsSinceEpoch) * 1000;
 
-  pb_common.AnyValue _attributeONEValueToProtobuf(Object value) {
-    switch (value.runtimeType) {
-      case String:
-        return pb_common.AnyValue(stringValue: value as String);
-      case bool:
-        return pb_common.AnyValue(boolValue: value as bool);
-      case double:
-        return pb_common.AnyValue(doubleValue: value as double);
-      case int:
-        return pb_common.AnyValue(intValue: Int64(value as int));
-    }
-    return pb_common.AnyValue();
+  /// A log body is `dynamic`, so unlike an attribute it may be of a type that
+  /// has no OTLP equivalent. Fall back to its string representation rather than
+  /// dropping it silently.
+  pb_common.AnyValue _bodyToProtobuf(Object body) {
+    final value = _attributeValueToProtobuf(body);
+    return value == pb_common.AnyValue() ? pb_common.AnyValue(stringValue: body.toString()) : value;
   }
 
   pb_common.AnyValue _attributeValueToProtobuf(Object value) {
