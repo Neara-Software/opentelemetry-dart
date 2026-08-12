@@ -34,7 +34,7 @@ void main() {
         DateTime.fromMicrosecondsSinceEpoch(Int64(123).toInt() ~/ 1000));
   });
 
-  test('logRecord update same attribute will create attributesCount diff', () {
+  test('logRecord overwriting an attribute does not count as dropped', () {
     final logRecord = sdk.LogRecord(
       instrumentationScope: sdk.InstrumentationScope(
           'library_name', 'library_version', 'url://schema', []),
@@ -43,6 +43,34 @@ void main() {
       ..setAttributes([api.Attribute.fromString('key2', 'value')])
       ..setAttribute(api.Attribute.fromString('key2', 'value2'));
 
+    expect(logRecord.attributes.get('key2'), 'value2');
+    expect(logRecord.droppedAttributesCount, 0);
+  });
+
+  test('logRecord enforces attributeCountLimit', () {
+    final logRecord = sdk.LogRecord(
+      instrumentationScope: sdk.InstrumentationScope(
+          'library_name', 'library_version', 'url://schema', []),
+      logRecordLimits: LogRecordLimits(attributeCountLimit: 2),
+    )..setAttributes([
+        api.Attribute.fromString('a', '1'),
+        api.Attribute.fromString('b', '2'),
+        api.Attribute.fromString('c', '3'),
+        api.Attribute.fromString('d', '4'),
+      ]);
+
+    expect(logRecord.attributes.keys, const <String>['a', 'b']);
+    expect(logRecord.droppedAttributesCount, 2);
+  });
+
+  test('logRecord attributeCountLimit of zero drops everything', () {
+    final logRecord = sdk.LogRecord(
+      instrumentationScope: sdk.InstrumentationScope(
+          'library_name', 'library_version', 'url://schema', []),
+      logRecordLimits: LogRecordLimits(attributeCountLimit: 0),
+    )..setAttributes([api.Attribute.fromString('a', '1')]);
+
+    expect(logRecord.attributes.keys, isEmpty);
     expect(logRecord.droppedAttributesCount, 1);
   });
 

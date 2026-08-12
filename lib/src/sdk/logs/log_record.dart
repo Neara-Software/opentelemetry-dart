@@ -53,7 +53,7 @@ class LogRecord implements ReadWriteLogRecord {
   String _severityText;
   api.Severity _severityNumber;
   dynamic _body;
-  int _totalAttributesCount = 0;
+  int _droppedAttributesCount = 0;
 
   final sdk.Attributes _attributes;
 
@@ -101,7 +101,7 @@ class LogRecord implements ReadWriteLogRecord {
   api.SpanContext get spanContext => api.spanContextFromContext(_context);
 
   @override
-  int get droppedAttributesCount => _totalAttributesCount - attributes.length;
+  int get droppedAttributesCount => _droppedAttributesCount;
 
   @override
   DateTime get timeStamp => _timeStamp ?? DateTime.fromMicrosecondsSinceEpoch((_timeProvider.now ~/ 1000).toInt());
@@ -132,8 +132,18 @@ class LogRecord implements ReadWriteLogRecord {
 
   void setAttribute(api.Attribute attribute) {
     if (attribute.key.isEmpty) return;
-    if (logRecordLimits.attributeCountLimit == 0) return;
-    _totalAttributesCount += 1;
+    if (logRecordLimits.attributeCountLimit == 0) {
+      _droppedAttributesCount++;
+      return;
+    }
+    // Once the limit is reached only keys already present may still be updated,
+    // so that overwriting a key does not count as a drop. Mirrors
+    // Span.setAttribute.
+    if (_attributes.length >= logRecordLimits.attributeCountLimit &&
+        _attributes.get(attribute.key) == null) {
+      _droppedAttributesCount++;
+      return;
+    }
     _attributes.add(applyAttributeLimitsForLog(attribute, logRecordLimits));
   }
 }
