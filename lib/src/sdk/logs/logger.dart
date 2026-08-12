@@ -41,6 +41,8 @@ class Logger extends api.Logger {
       severityNumber: severityNumber,
       attributes: attributes,
       body: body,
+      timeStamp: timeStamp,
+      observedTimestamp: observedTimestamp,
       timeProvider: _timeProvider,
     );
     for (final processor in _processors) {

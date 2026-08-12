@@ -44,4 +44,22 @@ void main() {
               it.resource.attributes.keys.isEmpty == true;
         })))).called(1);
   });
+
+  test('emit forwards explicit timestamps to the log record', () {
+    final processor = MockLockRecordProcessor();
+    final timeStamp = DateTime.utc(2000, 1, 2, 3, 4, 5);
+    final observedTimestamp = DateTime.utc(2000, 1, 2, 3, 4, 6);
+
+    sdk.Logger(
+      sdk.InstrumentationScope('library_name', 'library_version', 'url://schema', []),
+      LogRecordLimits(),
+      FakeTimeProvider(now: Int64(60)),
+      [processor],
+      sdk.Resource([]),
+    ).emit(body: 'TEST!', timeStamp: timeStamp, observedTimestamp: observedTimestamp);
+
+    verify(() => processor.onEmit(any<sdk.LogRecord>(that: predicate<sdk.LogRecord>((it) {
+          return it.timeStamp == timeStamp && it.observedTimestamp == observedTimestamp;
+        })))).called(1);
+  });
 }
