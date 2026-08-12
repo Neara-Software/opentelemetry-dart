@@ -59,11 +59,13 @@ class LoggerProvider implements api.LoggerProvider {
     );
   }
 
-  void forceFlush() {
-    return _processors.forEach((e) => e.forceFlush());
-  }
+  /// Flushes every registered processor.
+  ///
+  /// Unlike [sdk.TracerProviderBase.forceFlush] this is awaitable, because log
+  /// processors export asynchronously and callers need to be able to wait for
+  /// pending records before the process exits.
+  Future<void> forceFlush() => Future.wait(_processors.map((e) => e.forceFlush()));
 
-  void shutdown() {
-    return _processors.forEach((e) => e.shutdown());
-  }
+  /// Shuts down every registered processor, flushing what is still buffered.
+  Future<void> shutdown() => Future.wait(_processors.map((e) => e.shutdown()));
 }

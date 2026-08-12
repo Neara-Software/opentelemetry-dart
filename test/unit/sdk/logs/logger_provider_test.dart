@@ -37,7 +37,7 @@ void main() {
     final mockProcessor2 = MockLogRecordProcessor();
     when(mockProcessor1.forceFlush).thenAnswer((_) async => Future.value());
     when(mockProcessor2.forceFlush).thenAnswer((_) async => Future.value());
-    sdk.LoggerProvider(processors: [mockProcessor1, mockProcessor2]).forceFlush();
+    await sdk.LoggerProvider(processors: [mockProcessor1, mockProcessor2]).forceFlush();
 
     verify(mockProcessor1.forceFlush).called(1);
     verify(mockProcessor2.forceFlush).called(1);
@@ -48,9 +48,37 @@ void main() {
     final mockProcessor2 = MockLogRecordProcessor();
     when(mockProcessor1.shutdown).thenAnswer((_) async => Future.value());
     when(mockProcessor2.shutdown).thenAnswer((_) async => Future.value());
-    sdk.LoggerProvider(processors: [mockProcessor1, mockProcessor2]).shutdown();
+    await sdk.LoggerProvider(processors: [mockProcessor1, mockProcessor2]).shutdown();
 
     verify(mockProcessor1.shutdown).called(1);
     verify(mockProcessor2.shutdown).called(1);
+  });
+
+  test('loggerProvider forceFlush waits for slow processors', () async {
+    var finished = false;
+    final mockProcessor = MockLogRecordProcessor();
+    when(mockProcessor.forceFlush).thenAnswer((_) async {
+      await Future.delayed(const Duration(milliseconds: 50));
+      finished = true;
+    });
+
+    // Previously forceFlush discarded the processors' futures and returned
+    // void, so there was no way to wait for pending records before exit.
+    await sdk.LoggerProvider(processors: [mockProcessor]).forceFlush();
+
+    expect(finished, isTrue);
+  });
+
+  test('loggerProvider shutdown waits for slow processors', () async {
+    var finished = false;
+    final mockProcessor = MockLogRecordProcessor();
+    when(mockProcessor.shutdown).thenAnswer((_) async {
+      await Future.delayed(const Duration(milliseconds: 50));
+      finished = true;
+    });
+
+    await sdk.LoggerProvider(processors: [mockProcessor]).shutdown();
+
+    expect(finished, isTrue);
   });
 }
