@@ -4,6 +4,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:meta/meta.dart';
 import 'package:opentelemetry/sdk.dart' as sdk;
 
 class BatchLogRecordProcessor extends sdk.LogRecordProcessor {
@@ -22,6 +23,11 @@ class BatchLogRecordProcessor extends sdk.LogRecordProcessor {
 
   bool _isShutDown = false;
   Timer? _timer;
+
+  /// Whether a flush is currently scheduled. An idle or shut down processor
+  /// must not hold a pending timer.
+  @visibleForTesting
+  bool get hasPendingTimer => _timer != null;
 
   BatchLogRecordProcessor({
     required this.exporter,
@@ -61,21 +67,19 @@ class BatchLogRecordProcessor extends sdk.LogRecordProcessor {
     _maybeStartTimer();
   }
 
-  Future<void> _flushAll() {
-    return Future(() async {
-      final promises = <Future<void>>[];
-      final batchCount = (_finishedLogRecords.length / maxExportBatchSize).ceil();
+  Future<void> _flushAll() async {
+    // Cancel unconditionally: with an empty buffer no batch runs below, and the
+    // pending timer would otherwise outlive a shutdown.
+    _clearTimer();
 
-      for (var i = 0; i < batchCount; i++) {
-        promises.add(_flushOneBatch());
-      }
+    final promises = <Future<void>>[];
+    final batchCount = (_finishedLogRecords.length / maxExportBatchSize).ceil();
 
-      try {
-        await Future.wait(promises);
-      } catch (e) {
-        rethrow;
-      }
-    });
+    for (var i = 0; i < batchCount; i++) {
+      promises.add(_flushOneBatch());
+    }
+
+    await Future.wait(promises);
   }
 
   Future<void> _flushOneBatch() async {
@@ -87,15 +91,17 @@ class BatchLogRecordProcessor extends sdk.LogRecordProcessor {
   }
 
   void _maybeStartTimer() {
-    if (_timer != null) return;
+    if (_timer != null || _isShutDown) return;
     _timer = Timer(Duration(milliseconds: scheduledDelayMillis), () async {
       await _flushOneBatch();
-      _clearTimer();
-      _maybeStartTimer();
+      // Only keep the timer alive while there is still buffered work; otherwise
+      // an idle processor would reschedule itself forever.
+      if (_finishedLogRecords.isNotEmpty) _maybeStartTimer();
     });
   }
 
   void _clearTimer() {
+    _timer?.cancel();
     _timer = null;
   }
 }

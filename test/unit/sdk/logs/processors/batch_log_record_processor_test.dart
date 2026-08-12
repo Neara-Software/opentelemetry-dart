@@ -109,4 +109,76 @@ void main() {
           }),
         ))).called(1);
   });
+
+  group('scheduled timer', () {
+    sdk.LogRecord newRecord() => sdk.LogRecord(
+          instrumentationScope: sdk.InstrumentationScope('library_name', 'library_version', 'url://schema', []),
+          logRecordLimits: LogRecordLimits(),
+        )..body = 'test log';
+
+    sdk.BatchLogRecordProcessor newProcessor(sdk.LogRecordExporter exporter) => sdk.BatchLogRecordProcessor(
+          exporter: exporter,
+          scheduledDelayMillis: 20,
+        );
+
+    test('is not rescheduled once the buffer drains', () async {
+      final exporter = MockLogRecordExporter();
+      when(() => exporter.export(any())).thenAnswer((_) async => sdk.ExportResult(code: sdk.ExportResultCode.success));
+      final processor = newProcessor(exporter);
+
+      processor.onEmit(newRecord());
+      expect(processor.hasPendingTimer, isTrue);
+
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Previously the timer callback unconditionally rearmed itself, leaving an
+      // idle processor waking up every scheduledDelayMillis forever.
+      expect(processor.hasPendingTimer, isFalse);
+      verify(() => exporter.export(any())).called(1);
+    });
+
+    test('is rearmed by a subsequent emit', () async {
+      final exporter = MockLogRecordExporter();
+      when(() => exporter.export(any())).thenAnswer((_) async => sdk.ExportResult(code: sdk.ExportResultCode.success));
+      final processor = newProcessor(exporter);
+
+      processor.onEmit(newRecord());
+      await Future.delayed(const Duration(milliseconds: 100));
+      expect(processor.hasPendingTimer, isFalse);
+
+      processor.onEmit(newRecord());
+      expect(processor.hasPendingTimer, isTrue);
+
+      await Future.delayed(const Duration(milliseconds: 100));
+      verify(() => exporter.export(any())).called(2);
+    });
+
+    test('does not outlive shutdown', () async {
+      final exporter = MockLogRecordExporter();
+      when(() => exporter.export(any())).thenAnswer((_) async => sdk.ExportResult(code: sdk.ExportResultCode.success));
+      when(() => exporter.shutdown()).thenAnswer((_) async {});
+      final processor = newProcessor(exporter);
+
+      processor.onEmit(newRecord());
+      expect(processor.hasPendingTimer, isTrue);
+
+      await processor.shutdown();
+
+      expect(processor.hasPendingTimer, isFalse);
+    });
+
+    test('shutdown with an empty buffer still cancels a pending timer', () async {
+      final exporter = MockLogRecordExporter();
+      when(() => exporter.export(any())).thenAnswer((_) async => sdk.ExportResult(code: sdk.ExportResultCode.success));
+      when(() => exporter.shutdown()).thenAnswer((_) async {});
+      final processor = newProcessor(exporter);
+
+      processor.onEmit(newRecord());
+      await processor.forceFlush();
+      expect(processor.hasPendingTimer, isFalse);
+
+      await processor.shutdown();
+      expect(processor.hasPendingTimer, isFalse);
+    });
+  });
 }
