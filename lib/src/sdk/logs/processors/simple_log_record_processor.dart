@@ -17,8 +17,6 @@ class SimpleLogRecordProcessor implements sdk.LogRecordProcessor {
 
   SimpleLogRecordProcessor({required this.exporter});
 
-  bool _isForcedFlushed = false;
-
   @override
   void onEmit(sdk.ReadableLogRecord logRecord) {
     if (_shutDownOnce) return;
@@ -30,20 +28,23 @@ class SimpleLogRecordProcessor implements sdk.LogRecordProcessor {
       }
     }).whenComplete(() {
       completer.complete();
-      if (_isForcedFlushed) return;
       exportsCompletion.remove(completer);
     });
   }
 
   @override
   Future<void> forceFlush() async {
-    _isForcedFlushed = true;
-    await Future.forEach(exportsCompletion, (completer) => completer.future);
+    // Snapshot: `exportsCompletion` is mutated as exports settle, and `onEmit`
+    // may append to it while we await. Iterating it directly would risk a
+    // ConcurrentModificationError and would never terminate under load.
+    await Future.wait(exportsCompletion.toList().map((c) => c.future));
   }
 
   @override
   Future<void> shutdown() async {
     _shutDownOnce = true;
+    // Let in-flight exports settle before the exporter tears down its transport.
+    await forceFlush();
     await exporter.shutdown();
   }
 }

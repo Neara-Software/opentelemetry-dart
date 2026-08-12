@@ -85,4 +85,49 @@ void main() {
     final flushFuture = processor.forceFlush();
     expect(flushFuture, completes);
   });
+
+  test('completed exports are reclaimed, including after a forceFlush', () async {
+    when(() => exporter.export(any())).thenAnswer((_) async => sdk.ExportResult(code: sdk.ExportResultCode.success));
+
+    sdk.LogRecord newRecord() => sdk.LogRecord(
+        instrumentationScope: sdk.InstrumentationScope('library_name', 'library_version', 'url://schema', []),
+        logRecordLimits: LogRecordLimits(),
+        timeProvider: FakeTimeProvider(now: Int64(123)));
+
+    final simple = processor as sdk.SimpleLogRecordProcessor;
+
+    processor.onEmit(newRecord());
+    await processor.forceFlush();
+    expect(simple.exportsCompletion, isEmpty);
+
+    // A latch set by the first forceFlush used to disable reclamation
+    // permanently, so every later export leaked a Completer.
+    for (var i = 0; i < 5; i++) {
+      processor.onEmit(newRecord());
+      await processor.forceFlush();
+    }
+    expect(simple.exportsCompletion, isEmpty);
+  });
+
+  test('forceFlush tolerates records emitted while it is awaiting', () async {
+    final simple = processor as sdk.SimpleLogRecordProcessor;
+    when(() => exporter.export(any())).thenAnswer((_) async {
+      await Future.delayed(const Duration(milliseconds: 20));
+      return sdk.ExportResult(code: sdk.ExportResultCode.success);
+    });
+
+    sdk.LogRecord newRecord() => sdk.LogRecord(
+        instrumentationScope: sdk.InstrumentationScope('library_name', 'library_version', 'url://schema', []),
+        logRecordLimits: LogRecordLimits(),
+        timeProvider: FakeTimeProvider(now: Int64(123)));
+
+    processor.onEmit(newRecord());
+    final flush = processor.forceFlush();
+    // Emitting during the flush mutates the list the flush is waiting on.
+    processor.onEmit(newRecord());
+
+    await expectLater(flush, completes);
+    await Future.delayed(const Duration(milliseconds: 60));
+    expect(simple.exportsCompletion, isEmpty);
+  });
 }
