@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **New:** `BatchSpanProcessor` now accepts an optional `maxQueueSize` parameter (default: `2048`) so callers can raise the span buffer ceiling. Cherry-picked from upstream 1f02d2c.
+
 ## [0.18.6](https://github.com/Workiva/opentelemetry-dart/tree/0.18.6) (2024-08-15)
 
 [Full Changelog](https://github.com/Workiva/opentelemetry-dart/compare/0.18.5...0.18.6)
