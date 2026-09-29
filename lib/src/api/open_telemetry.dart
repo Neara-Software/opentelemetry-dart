@@ -7,21 +7,37 @@ import 'package:meta/meta.dart';
 
 import '../../api.dart' as api;
 import '../../src/sdk/trace/tracer.dart' as sdk show Tracer;
+import 'metrics/meter_provider.dart';
+import 'metrics/noop/noop_meter_provider.dart';
 import 'propagation/noop_text_map_propagator.dart';
 import 'trace/noop_tracer_provider.dart';
 
 final api.TracerProvider _noopTracerProvider = NoopTracerProvider();
 final api.TextMapPropagator _noopTextMapPropagator = NoopTextMapPropagator();
 final api.LoggerProvider _noopLoggerProvider = api.NoopLoggerProvider();
+final MeterProvider _noopMeterProvider = NoopMeterProvider();
 api.LoggerProvider _logProvider = _noopLoggerProvider;
 api.TracerProvider _tracerProvider = _noopTracerProvider;
 api.TextMapPropagator _textMapPropagator = _noopTextMapPropagator;
+MeterProvider _meterProvider = _noopMeterProvider;
 
 api.TracerProvider get globalTracerProvider => _tracerProvider;
 
 api.LoggerProvider get globalLogProvider => _logProvider;
 
 api.TextMapPropagator get globalTextMapPropagator => _textMapPropagator;
+
+MeterProvider get globalMeterProvider => _meterProvider;
+
+void registerGlobalMeterProvider(MeterProvider meterProvider) {
+  if (_meterProvider != _noopMeterProvider) {
+    throw StateError('A global MeterProvider has already been created. '
+        'registerGlobalMeterProvider must be called only once before any '
+        'calls to the getter globalMeterProvider.');
+  }
+
+  _meterProvider = meterProvider;
+}
 
 void registerGlobalTracerProvider(api.TracerProvider tracerProvider) {
   if (_tracerProvider != _noopTracerProvider) {

@@ -11,7 +11,32 @@ export 'api/context/noop_context_manager.dart' show NoopContextManager;
 export 'api/context/zone_context.dart' show ZoneContext;
 export 'api/context/zone_context_manager.dart' show ZoneContextManager;
 export 'api/metrics/counter.dart' show Counter;
+export 'api/metrics/gauge.dart' show Gauge;
+export 'api/metrics/histogram.dart' show Histogram;
 export 'api/metrics/meter.dart' show Meter;
 export 'api/metrics/meter_provider.dart' show MeterProvider;
+export 'api/metrics/noop/noop_counter.dart' show NoopCounter;
+export 'api/metrics/noop/noop_gauge.dart' show NoopGauge;
+export 'api/metrics/noop/noop_histogram.dart' show NoopHistogram;
 export 'api/metrics/noop/noop_meter.dart' show NoopMeter;
+export 'api/metrics/noop/noop_meter_provider.dart' show NoopMeterProvider;
+export 'api/metrics/noop/noop_observable_instruments.dart'
+    show
+        NoopObservableCounter,
+        NoopObservableGauge,
+        NoopObservableUpDownCounter;
+export 'api/metrics/noop/noop_up_down_counter.dart' show NoopUpDownCounter;
+export 'api/metrics/observable_instruments.dart'
+    show
+        BatchObservableCallback,
+        BatchObserver,
+        ObservableCallback,
+        ObservableCounter,
+        ObservableGauge,
+        ObservableInstrument,
+        ObservableUpDownCounter,
+        Observer;
+export 'api/metrics/up_down_counter.dart' show UpDownCounter;
+export 'api/open_telemetry.dart'
+    show globalMeterProvider, registerGlobalMeterProvider;
 export 'api/trace/nonrecording_span.dart' show NonRecordingSpan;
