@@ -27,12 +27,9 @@ abstract class Observer<T extends num> {
 /// The callback observer used to record observations across multiple asynchronous instruments.
 abstract class BatchObserver {
   /// Observes a value for a specific instrument with optional attributes.
-  void observe<T extends num>(
-      ObservableInstrument<T> instrument, T value,
+  void observe<T extends num>(ObservableInstrument<T> instrument, T value,
       {List<Attribute>? attributes});
 }
 
-typedef ObservableCallback<T extends num> = void Function(
-    Observer<T> observer);
-typedef BatchObservableCallback = void Function(
-    BatchObserver observer);
+typedef ObservableCallback<T extends num> = void Function(Observer<T> observer);
+typedef BatchObservableCallback = void Function(BatchObserver observer);

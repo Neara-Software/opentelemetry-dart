@@ -19,13 +19,15 @@ void main() {
       aggregator.record(10);
       aggregator.record(25);
 
-      final point1 = aggregator.toPoint(t0, t1, AggregationTemporality.cumulative);
+      final point1 =
+          aggregator.toPoint(t0, t1, AggregationTemporality.cumulative);
       expect(point1.value, equals(35));
       expect(point1.startTime, equals(t0));
       expect(point1.endTime, equals(t1));
 
       aggregator.record(15);
-      final point2 = aggregator.toPoint(t0, t2, AggregationTemporality.cumulative);
+      final point2 =
+          aggregator.toPoint(t0, t2, AggregationTemporality.cumulative);
       expect(point2.value, equals(50));
     });
 
@@ -34,7 +36,8 @@ void main() {
       aggregator.record(10);
       aggregator.record(-5); // should be dropped/ignored
 
-      final point = aggregator.toPoint(t0, t1, AggregationTemporality.cumulative);
+      final point =
+          aggregator.toPoint(t0, t1, AggregationTemporality.cumulative);
       expect(point.value, equals(10));
     });
 
@@ -44,7 +47,8 @@ void main() {
       aggregator.record(-4);
       aggregator.record(2);
 
-      final point = aggregator.toPoint(t0, t1, AggregationTemporality.cumulative);
+      final point =
+          aggregator.toPoint(t0, t1, AggregationTemporality.cumulative);
       expect(point.value, equals(8));
     });
 
@@ -66,7 +70,8 @@ void main() {
       aggregator.record(1.5);
       aggregator.record(2.25);
 
-      final point = aggregator.toPoint(t0, t1, AggregationTemporality.cumulative);
+      final point =
+          aggregator.toPoint(t0, t1, AggregationTemporality.cumulative);
       expect(point.value, closeTo(3.75, 0.0001));
     });
   });
@@ -89,17 +94,19 @@ void main() {
   });
 
   group('ExplicitBucketHistogramAggregator:', () {
-    test('classifies values into default buckets with min, max, sum and count', () {
+    test('classifies values into default buckets with min, max, sum and count',
+        () {
       final aggregator = ExplicitBucketHistogramAggregator();
       // default buckets include: 0, 5, 10, 25, 50, 75, 100, 250, 500, 750, 1000, 2500, 5000, 7500, 10000
-      aggregator.record(-1);  // bucket 0 (<= 0)
-      aggregator.record(0);   // bucket 0 (<= 0)
-      aggregator.record(3);   // bucket 1 (0 < x <= 5)
-      aggregator.record(5);   // bucket 1 (0 < x <= 5)
-      aggregator.record(12);  // bucket 3 (10 < x <= 25)
+      aggregator.record(-1); // bucket 0 (<= 0)
+      aggregator.record(0); // bucket 0 (<= 0)
+      aggregator.record(3); // bucket 1 (0 < x <= 5)
+      aggregator.record(5); // bucket 1 (0 < x <= 5)
+      aggregator.record(12); // bucket 3 (10 < x <= 25)
       aggregator.record(10001); // last bucket (> 10000)
 
-      final point = aggregator.toPoint(t0, t1, AggregationTemporality.cumulative);
+      final point =
+          aggregator.toPoint(t0, t1, AggregationTemporality.cumulative);
       expect(point.count, equals(6));
       expect(point.sum, equals(10020));
       expect(point.min, equals(-1));
@@ -114,14 +121,16 @@ void main() {
     });
 
     test('supports custom boundaries', () {
-      final aggregator = ExplicitBucketHistogramAggregator(boundaries: [10, 20, 30]);
-      aggregator.record(5);   // <= 10 -> bucket 0
-      aggregator.record(10);  // <= 10 -> bucket 0
-      aggregator.record(15);  // <= 20 -> bucket 1
-      aggregator.record(25);  // <= 30 -> bucket 2
-      aggregator.record(35);  // > 30 -> bucket 3
+      final aggregator =
+          ExplicitBucketHistogramAggregator(boundaries: [10, 20, 30]);
+      aggregator.record(5); // <= 10 -> bucket 0
+      aggregator.record(10); // <= 10 -> bucket 0
+      aggregator.record(15); // <= 20 -> bucket 1
+      aggregator.record(25); // <= 30 -> bucket 2
+      aggregator.record(35); // > 30 -> bucket 3
 
-      final point = aggregator.toPoint(t0, t1, AggregationTemporality.cumulative);
+      final point =
+          aggregator.toPoint(t0, t1, AggregationTemporality.cumulative);
       expect(point.explicitBounds, equals([10.0, 20.0, 30.0]));
       expect(point.bucketCounts, equals([2, 1, 1, 1]));
       expect(point.count, equals(5));
@@ -131,7 +140,8 @@ void main() {
     });
 
     test('supports delta temporality', () {
-      final aggregator = ExplicitBucketHistogramAggregator(boundaries: [10, 20]);
+      final aggregator =
+          ExplicitBucketHistogramAggregator(boundaries: [10, 20]);
       aggregator.record(5);
       aggregator.record(15);
 

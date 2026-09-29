@@ -36,11 +36,11 @@ class NoopMeter implements Meter {
   }
 
   @override
-  ObservableUpDownCounter<T>
-      createObservableUpDownCounter<T extends num>(String name,
-          {ObservableCallback<T>? callback,
-          String? description,
-          String? unit}) {
+  ObservableUpDownCounter<T> createObservableUpDownCounter<T extends num>(
+      String name,
+      {ObservableCallback<T>? callback,
+      String? description,
+      String? unit}) {
     return NoopObservableUpDownCounter<T>();
   }
 

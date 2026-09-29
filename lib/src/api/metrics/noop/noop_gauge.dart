@@ -2,7 +2,6 @@
 // Licensed under the Apache License, Version 2.0. Please see https://github.com/Workiva/opentelemetry-dart/blob/master/LICENSE for more information
 
 import 'package:opentelemetry/api.dart';
-import 'package:opentelemetry/src/experimental_api.dart';
 
 /// A no-op instance of a [Gauge].
 class NoopGauge<T extends num> implements Gauge<T> {

@@ -39,7 +39,8 @@ void main() {
 
     test('matches instrument type', () {
       final counterSelector = InstrumentSelector(type: InstrumentType.counter);
-      final histogramSelector = InstrumentSelector(type: InstrumentType.histogram);
+      final histogramSelector =
+          InstrumentSelector(type: InstrumentType.histogram);
 
       final counterDesc = InstrumentDescriptor(
         name: 'requests',
@@ -69,13 +70,17 @@ void main() {
       expect(streamConfigs.first.isDrop, isFalse);
     });
 
-    test('applies matching view with renamed stream, attribute filter, and custom histogram buckets', () {
+    test(
+        'applies matching view with renamed stream, attribute filter, and custom histogram buckets',
+        () {
       final view = View(
-        selector: InstrumentSelector(name: 'http.server.duration', type: InstrumentType.histogram),
+        selector: InstrumentSelector(
+            name: 'http.server.duration', type: InstrumentType.histogram),
         name: 'http.server.latency',
         description: 'Server latency in ms',
         attributeKeys: {'http.status_code', 'http.method'},
-        aggregation: ViewAggregation.explicitBucketHistogram(boundaries: [5, 25, 100]),
+        aggregation:
+            ViewAggregation.explicitBucketHistogram(boundaries: [5, 25, 100]),
       );
 
       final registry = ViewRegistry([view]);

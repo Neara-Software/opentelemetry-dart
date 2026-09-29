@@ -13,7 +13,8 @@ void main() {
   final t1 = DateTime.utc(2023, 1, 1, 0, 1, 0);
 
   group('AttributesKey:', () {
-    test('same attributes in different order are equal and have same hashCode', () {
+    test('same attributes in different order are equal and have same hashCode',
+        () {
       final key1 = AttributesKey([
         api.Attribute.fromString('status', '200'),
         api.Attribute.fromString('method', 'GET'),
@@ -37,13 +38,15 @@ void main() {
         allowedKeys: {'status', 'method'},
       );
 
-      expect(key.attributes.map((a) => a.key), containsAllInOrder(['method', 'status']));
+      expect(key.attributes.map((a) => a.key),
+          containsAllInOrder(['method', 'status']));
       expect(key.attributes.any((a) => a.key == 'sensitive_user_id'), isFalse);
     });
   });
 
   group('InstrumentStorage:', () {
-    test('records measurements across different attribute sets for Counter', () {
+    test('records measurements across different attribute sets for Counter',
+        () {
       final storage = InstrumentStorage.createCounter<int>(
         name: 'http_requests_total',
         description: 'Total HTTP requests',
@@ -60,8 +63,10 @@ void main() {
       final points = storage.collect(t0, t1, AggregationTemporality.cumulative);
       expect(points.length, equals(2));
 
-      final getPoint = points.firstWhere((p) => p.attributes.any((a) => a.value == 'GET'));
-      final postPoint = points.firstWhere((p) => p.attributes.any((a) => a.value == 'POST'));
+      final getPoint =
+          points.firstWhere((p) => p.attributes.any((a) => a.value == 'GET'));
+      final postPoint =
+          points.firstWhere((p) => p.attributes.any((a) => a.value == 'POST'));
 
       expect(getPoint.value, equals(7));
       expect(postPoint.value, equals(3));
@@ -87,7 +92,8 @@ void main() {
       expect(points.length, equals(3));
 
       final overflowPoint = points.firstWhere(
-        (p) => p.attributes.any((a) => a.key == 'otel.metric.overflow' && a.value == true),
+        (p) => p.attributes
+            .any((a) => a.key == 'otel.metric.overflow' && a.value == true),
       );
       expect(overflowPoint.value, equals(15));
     });
@@ -105,7 +111,8 @@ void main() {
       final points = storage.collect(t0, t1, AggregationTemporality.cumulative);
       expect(points.length, equals(2));
 
-      final prodPoint = points.firstWhere((p) => p.attributes.any((a) => a.value == 'prod'));
+      final prodPoint =
+          points.firstWhere((p) => p.attributes.any((a) => a.value == 'prod'));
       expect(prodPoint.count, equals(2));
       expect(prodPoint.sum, equals(30));
     });

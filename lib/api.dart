@@ -5,8 +5,16 @@ export 'src/api/common/attribute.dart' show Attribute;
 export 'src/api/common/resource_attributes.dart' show ResourceAttributes;
 export 'src/api/common/semantic_attributes.dart' show SemanticAttributes;
 export 'src/api/context/context.dart'
-    show Context, ContextKey, contextWithSpan, contextWithSpanContext, spanContextFromContext, spanFromContext, zone;
-export 'src/api/context/context_manager.dart' show globalContextManager, registerGlobalContextManager;
+    show
+        Context,
+        ContextKey,
+        contextWithSpan,
+        contextWithSpanContext,
+        spanContextFromContext,
+        spanFromContext,
+        zone;
+export 'src/api/context/context_manager.dart'
+    show globalContextManager, registerGlobalContextManager;
 export 'src/api/exporters/span_exporter.dart' show SpanExporter;
 export 'src/api/instrumentation_library.dart' show InstrumentationLibrary;
 export 'src/api/logs/log_record.dart' show Severity;
@@ -14,12 +22,41 @@ export 'src/api/logs/logger.dart' show Logger;
 export 'src/api/logs/logger_provider.dart' show LoggerProvider;
 export 'src/api/logs/noop/noop_logger.dart' show NoopLogger;
 export 'src/api/logs/noop/noop_logger_provider.dart' show NoopLoggerProvider;
+export 'src/api/metrics/counter.dart' show Counter;
+export 'src/api/metrics/gauge.dart' show Gauge;
+export 'src/api/metrics/histogram.dart' show Histogram;
+export 'src/api/metrics/meter.dart' show Meter;
+export 'src/api/metrics/meter_provider.dart' show MeterProvider;
+export 'src/api/metrics/noop/noop_counter.dart' show NoopCounter;
+export 'src/api/metrics/noop/noop_gauge.dart' show NoopGauge;
+export 'src/api/metrics/noop/noop_histogram.dart' show NoopHistogram;
+export 'src/api/metrics/noop/noop_meter.dart' show NoopMeter;
+export 'src/api/metrics/noop/noop_meter_provider.dart' show NoopMeterProvider;
+export 'src/api/metrics/noop/noop_observable_instruments.dart'
+    show
+        NoopObservableCounter,
+        NoopObservableGauge,
+        NoopObservableUpDownCounter;
+export 'src/api/metrics/noop/noop_up_down_counter.dart' show NoopUpDownCounter;
+export 'src/api/metrics/observable_instruments.dart'
+    show
+        BatchObservableCallback,
+        BatchObserver,
+        ObservableCallback,
+        ObservableCounter,
+        ObservableGauge,
+        ObservableInstrument,
+        ObservableUpDownCounter,
+        Observer;
+export 'src/api/metrics/up_down_counter.dart' show UpDownCounter;
 export 'src/api/open_telemetry.dart'
     show
         globalLogProvider,
+        globalMeterProvider,
         globalTextMapPropagator,
         globalTracerProvider,
         registerGlobalLogProvider,
+        registerGlobalMeterProvider,
         registerGlobalTextMapPropagator,
         registerGlobalTracerProvider,
         trace,
@@ -29,7 +66,8 @@ export 'src/api/open_telemetry.dart'
 export 'src/api/propagation/extractors/text_map_getter.dart' show TextMapGetter;
 export 'src/api/propagation/injectors/text_map_setter.dart' show TextMapSetter;
 export 'src/api/propagation/text_map_propagator.dart' show TextMapPropagator;
-export 'src/api/propagation/w3c_trace_context_propagator.dart' show W3CTraceContextPropagator;
+export 'src/api/propagation/w3c_trace_context_propagator.dart'
+    show W3CTraceContextPropagator;
 export 'src/api/span_processors/span_processor.dart' show SpanProcessor;
 export 'src/api/trace/id_generator.dart' show IdGenerator;
 export 'src/api/trace/span.dart' show Span, SpanKind;

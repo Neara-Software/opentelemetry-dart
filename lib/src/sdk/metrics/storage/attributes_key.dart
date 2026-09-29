@@ -20,7 +20,8 @@ class AttributesKey {
   }) {
     var filtered = rawAttributes;
     if (allowedKeys != null) {
-      filtered = rawAttributes.where((a) => allowedKeys.contains(a.key)).toList();
+      filtered =
+          rawAttributes.where((a) => allowedKeys.contains(a.key)).toList();
     }
 
     // Sort by key name so attribute order doesn't affect key equality

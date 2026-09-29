@@ -4,7 +4,6 @@
 @TestOn('vm')
 import 'package:opentelemetry/api.dart' as api;
 import 'package:opentelemetry/sdk.dart' as sdk;
-import 'package:opentelemetry/src/experimental_sdk.dart' as sdk;
 import 'package:opentelemetry/src/sdk/metrics/data/metric_data.dart';
 import 'package:opentelemetry/src/sdk/metrics/exporters/metric_exporter.dart';
 import 'package:opentelemetry/src/sdk/metrics/readers/periodic_exporting_metric_reader.dart';
@@ -79,14 +78,16 @@ void main() {
       meter.createObservableGauge<int>(
         'async_gauge',
         callback: (observer) {
-          observer.observe(observedValue, attributes: [api.Attribute.fromString('source', 'sensor')]);
+          observer.observe(observedValue,
+              attributes: [api.Attribute.fromString('source', 'sensor')]);
         },
       );
 
       await reader.collect();
 
       expect(exporter.exportedBatches.length, equals(1));
-      final metric = exporter.exportedBatches.first.first.scopeMetrics.first.metrics.first;
+      final metric =
+          exporter.exportedBatches.first.first.scopeMetrics.first.metrics.first;
       expect(metric.name, equals('async_gauge'));
       expect(metric.dataPoints.first.value, equals(42));
 
@@ -95,7 +96,8 @@ void main() {
       await reader.collect();
 
       expect(exporter.exportedBatches.length, equals(2));
-      final secondMetric = exporter.exportedBatches[1].first.scopeMetrics.first.metrics.first;
+      final secondMetric =
+          exporter.exportedBatches[1].first.scopeMetrics.first.metrics.first;
       expect(secondMetric.dataPoints.first.value, equals(100));
     });
 

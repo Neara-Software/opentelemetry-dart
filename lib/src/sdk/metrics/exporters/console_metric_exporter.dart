@@ -28,9 +28,11 @@ class ConsoleMetricExporter implements MetricExporter {
           if (m.unit != null) _output('  Unit: ${m.unit}');
           for (final point in m.dataPoints) {
             if (point is NumberPointData) {
-              _output('  Point: value=${point.value} attrs=${point.attributes.map((a) => "${a.key}=${a.value}").join(", ")}');
+              _output(
+                  '  Point: value=${point.value} attrs=${point.attributes.map((a) => "${a.key}=${a.value}").join(", ")}');
             } else if (point is HistogramPointData) {
-              _output('  HistogramPoint: count=${point.count} sum=${point.sum} min=${point.min} max=${point.max} buckets=${point.bucketCounts}');
+              _output(
+                  '  HistogramPoint: count=${point.count} sum=${point.sum} min=${point.min} max=${point.max} buckets=${point.bucketCounts}');
             }
           }
         }

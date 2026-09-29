@@ -29,17 +29,17 @@ abstract class Meter {
       {ObservableCallback<T>? callback, String? description, String? unit});
 
   /// Creates a new [ObservableUpDownCounter] instrument named [name].
-  ObservableUpDownCounter<T>
-      createObservableUpDownCounter<T extends num>(String name,
-          {ObservableCallback<T>? callback,
-          String? description,
-          String? unit});
+  ObservableUpDownCounter<T> createObservableUpDownCounter<T extends num>(
+      String name,
+      {ObservableCallback<T>? callback,
+      String? description,
+      String? unit});
 
   /// Creates a new [ObservableGauge] instrument named [name].
   ObservableGauge<T> createObservableGauge<T extends num>(String name,
       {ObservableCallback<T>? callback, String? description, String? unit});
 
   /// Registers a batch callback for multiple asynchronous instruments.
-  void batchCallback(BatchObservableCallback callback,
-      List<ObservableInstrument> instruments);
+  void batchCallback(
+      BatchObservableCallback callback, List<ObservableInstrument> instruments);
 }

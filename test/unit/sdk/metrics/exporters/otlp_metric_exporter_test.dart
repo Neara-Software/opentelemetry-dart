@@ -37,8 +37,10 @@ void main() {
     final t0 = DateTime.utc(2023, 1, 1, 0, 0, 0);
     final t1 = DateTime.utc(2023, 1, 1, 0, 1, 0);
 
-    final resource = sdk.Resource([api.Attribute.fromString('service.name', 'test_app')]);
-    final scope = sdk.InstrumentationScope('my_library', '1.0.0', 'https://opentelemetry.io/schemas/1.20.0', []);
+    final resource =
+        sdk.Resource([api.Attribute.fromString('service.name', 'test_app')]);
+    final scope = sdk.InstrumentationScope(
+        'my_library', '1.0.0', 'https://opentelemetry.io/schemas/1.20.0', []);
 
     final sumMetric = MetricData(
       name: 'requests_total',
@@ -107,7 +109,8 @@ void main() {
     expect(capturedBody, isNotNull);
 
     // Parse back the protobuf to verify wire correctness
-    final request = pb_metric_service.ExportMetricsServiceRequest.fromBuffer(capturedBody!);
+    final request =
+        pb_metric_service.ExportMetricsServiceRequest.fromBuffer(capturedBody!);
     expect(request.resourceMetrics.length, equals(1));
 
     final rm = request.resourceMetrics.first;
@@ -125,8 +128,10 @@ void main() {
     expect(sum.unit, equals('req'));
     expect(sum.sum.isMonotonic, isTrue);
     expect(sum.sum.dataPoints.first.asInt.toInt(), equals(42));
-    expect(sum.sum.dataPoints.first.attributes.first.key, equals('http.method'));
-    expect(sum.sum.dataPoints.first.attributes.first.value.stringValue, equals('GET'));
+    expect(
+        sum.sum.dataPoints.first.attributes.first.key, equals('http.method'));
+    expect(sum.sum.dataPoints.first.attributes.first.value.stringValue,
+        equals('GET'));
 
     // Verify Histogram Metric
     final hist = sm.metrics.firstWhere((m) => m.name == 'request_duration_ms');

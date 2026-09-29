@@ -178,7 +178,8 @@ class _HistogramStorage extends InstrumentStorage<num> {
     var agg = _aggregators[key];
     if (agg == null) {
       if (_aggregators.length >= maxCardinality) {
-        _overflowAggregator ??= ExplicitBucketHistogramAggregator(boundaries: boundaries);
+        _overflowAggregator ??=
+            ExplicitBucketHistogramAggregator(boundaries: boundaries);
         agg = _overflowAggregator;
       } else {
         agg = ExplicitBucketHistogramAggregator(boundaries: boundaries);

@@ -3,7 +3,6 @@
 
 @TestOn('vm')
 import 'package:opentelemetry/api.dart' as api;
-import 'package:opentelemetry/src/experimental_api.dart' as api;
 import 'package:test/test.dart';
 
 void main() {

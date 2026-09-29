@@ -40,7 +40,8 @@ class SumAggregator<T extends num> implements Aggregator<T> {
       _lastReportedSum = _currentSum;
     }
 
-    final T finalValue = (T == int ? reportValue.toInt() : reportValue.toDouble()) as T;
+    final T finalValue =
+        (T == int ? reportValue.toInt() : reportValue.toDouble()) as T;
 
     return NumberPointData<T>(
       startTime: startTime,

@@ -7,10 +7,8 @@ import 'package:quiver/core.dart';
 
 import '../../../api.dart' as api;
 import '../../../sdk.dart' as sdk;
-import '../../experimental_api.dart' as api;
 import '../common/instrumentation_scope.dart';
 import 'data/metric_data.dart';
-import 'meter.dart' as sdk;
 import 'readers/metric_reader.dart';
 import 'view/instrument_descriptor.dart';
 import 'view/view.dart';
@@ -74,15 +72,17 @@ class MeterProvider implements api.MeterProvider {
         final points = stream.storage.collect(_startTime, now, temporality);
 
         if (points.isNotEmpty) {
-          final isMonotonic = stream.descriptor.type == InstrumentType.counter ||
-              stream.descriptor.type == InstrumentType.observableCounter;
+          final isMonotonic =
+              stream.descriptor.type == InstrumentType.counter ||
+                  stream.descriptor.type == InstrumentType.observableCounter;
 
           metricDataList.add(MetricData(
             name: stream.storage.name,
             description: stream.storage.description,
             unit: stream.storage.unit,
             type: stream.metricType,
-            temporality: stream.metricType == MetricType.gauge ? null : temporality,
+            temporality:
+                stream.metricType == MetricType.gauge ? null : temporality,
             isMonotonic: isMonotonic,
             dataPoints: points,
           ));

@@ -13,7 +13,8 @@ import 'package:opentelemetry/sdk.dart' as sdk;
 import '../../proto/opentelemetry/proto/collector/metrics/v1/metrics_service.pb.dart'
     as pb_metric_service;
 import '../../proto/opentelemetry/proto/common/v1/common.pb.dart' as pb_common;
-import '../../proto/opentelemetry/proto/metrics/v1/metrics.pb.dart' as pb_metrics;
+import '../../proto/opentelemetry/proto/metrics/v1/metrics.pb.dart'
+    as pb_metrics;
 import '../../proto/opentelemetry/proto/metrics/v1/metrics.pbenum.dart'
     as pb_metrics_enum;
 import '../../proto/opentelemetry/proto/resource/v1/resource.pb.dart'
@@ -61,7 +62,8 @@ class OTLPMetricExporter implements MetricExporter {
     }
   }
 
-  Future<void> _sendWithRetry(Uri uri, List<ResourceMetricsData> metrics) async {
+  Future<void> _sendWithRetry(
+      Uri uri, List<ResourceMetricsData> metrics) async {
     const maxRetries = 3;
     var retries = 0;
     const retryableCodes = [429, 502, 503, 504];
@@ -99,7 +101,8 @@ class OTLPMetricExporter implements MetricExporter {
             'Collector responded with HTTP status code ${response.statusCode}');
       } catch (e) {
         if (retries >= maxRetries) {
-          _log.warning('Failed to export metrics after $maxRetries retries.', e);
+          _log.warning(
+              'Failed to export metrics after $maxRetries retries.', e);
           rethrow;
         }
         retries++;

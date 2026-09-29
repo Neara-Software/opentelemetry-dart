@@ -3,16 +3,12 @@
 
 import 'package:meta/meta.dart';
 
+import '../../../api.dart' as api;
 import '../../../sdk.dart' as sdk;
-import '../../experimental_api.dart' as api;
-import 'counter.dart' as sdk;
 import 'data/metric_data.dart';
-import 'gauge.dart' as sdk;
-import 'histogram.dart' as sdk;
 import 'meter_provider.dart';
 import 'observable_instruments.dart';
 import 'storage/instrument_storage.dart';
-import 'up_down_counter.dart' as sdk;
 import 'view/instrument_descriptor.dart';
 import 'view/view.dart';
 
@@ -39,7 +35,8 @@ class Meter implements api.Meter {
   Meter(this.provider, this.instrumentationScope);
 
   List<RegisteredMetricStream> get streams => _streams;
-  List<SdkObservableInstrument> get observableInstruments => _observableInstruments;
+  List<SdkObservableInstrument> get observableInstruments =>
+      _observableInstruments;
 
   @override
   api.Counter<T> createCounter<T extends num>(String name,
@@ -122,7 +119,8 @@ class Meter implements api.Meter {
       if (config.isDrop) continue;
       List<num>? boundaries;
       if (config.aggregation is ExplicitBucketHistogramAggregation) {
-        boundaries = (config.aggregation as ExplicitBucketHistogramAggregation).boundaries;
+        boundaries = (config.aggregation as ExplicitBucketHistogramAggregation)
+            .boundaries;
       }
       final storage = InstrumentStorage.createHistogram(
         name: config.name,
@@ -211,11 +209,11 @@ class Meter implements api.Meter {
   }
 
   @override
-  api.ObservableUpDownCounter<T>
-      createObservableUpDownCounter<T extends num>(String name,
-          {api.ObservableCallback<T>? callback,
-          String? description,
-          String? unit}) {
+  api.ObservableUpDownCounter<T> createObservableUpDownCounter<T extends num>(
+      String name,
+      {api.ObservableCallback<T>? callback,
+      String? description,
+      String? unit}) {
     final descriptor = InstrumentDescriptor(
       name: name,
       type: InstrumentType.observableUpDownCounter,
@@ -242,7 +240,8 @@ class Meter implements api.Meter {
       ));
     }
 
-    final instrument = SdkObservableUpDownCounter<T>(storages, callback: callback);
+    final instrument =
+        SdkObservableUpDownCounter<T>(storages, callback: callback);
     _observableInstruments.add(instrument);
     return instrument;
   }

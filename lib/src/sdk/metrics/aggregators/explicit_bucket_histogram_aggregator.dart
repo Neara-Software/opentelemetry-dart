@@ -9,8 +9,21 @@ import 'aggregator.dart';
 /// Aggregator that groups recorded values into explicit buckets.
 class ExplicitBucketHistogramAggregator implements Aggregator<num> {
   static const List<double> defaultBoundaries = [
-    0.0, 5.0, 10.0, 25.0, 50.0, 75.0, 100.0, 250.0, 500.0, 750.0, 1000.0,
-    2500.0, 5000.0, 7500.0, 10000.0
+    0.0,
+    5.0,
+    10.0,
+    25.0,
+    50.0,
+    75.0,
+    100.0,
+    250.0,
+    500.0,
+    750.0,
+    1000.0,
+    2500.0,
+    5000.0,
+    7500.0,
+    10000.0
   ];
 
   final List<double> boundaries;
@@ -39,13 +52,19 @@ class ExplicitBucketHistogramAggregator implements Aggregator<num> {
   void record(num value) {
     _cumulativeCount++;
     _cumulativeSum += value;
-    _cumulativeMin = _cumulativeMin == null ? value : (_cumulativeMin! < value ? _cumulativeMin : value);
-    _cumulativeMax = _cumulativeMax == null ? value : (_cumulativeMax! > value ? _cumulativeMax : value);
+    _cumulativeMin = _cumulativeMin == null
+        ? value
+        : (_cumulativeMin! < value ? _cumulativeMin : value);
+    _cumulativeMax = _cumulativeMax == null
+        ? value
+        : (_cumulativeMax! > value ? _cumulativeMax : value);
 
     _deltaCount++;
     _deltaSum += value;
-    _deltaMin = _deltaMin == null ? value : (_deltaMin! < value ? _deltaMin : value);
-    _deltaMax = _deltaMax == null ? value : (_deltaMax! > value ? _deltaMax : value);
+    _deltaMin =
+        _deltaMin == null ? value : (_deltaMin! < value ? _deltaMin : value);
+    _deltaMax =
+        _deltaMax == null ? value : (_deltaMax! > value ? _deltaMax : value);
 
     final bucketIdx = _findBucketIndex(value);
     _cumulativeBucketCounts[bucketIdx]++;
