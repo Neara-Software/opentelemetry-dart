@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0. Please see https://github.com/Workiva/opentelemetry-dart/blob/master/LICENSE for more information
 
 @TestOn('vm')
+import 'dart:async';
+
 import 'package:http/http.dart' as http;
 import 'package:mocktail/mocktail.dart';
 import 'package:opentelemetry/api.dart' as api;
@@ -140,5 +142,55 @@ void main() {
     expect(hist.histogram.dataPoints.first.min, equals(10.0));
     expect(hist.histogram.dataPoints.first.max, equals(50.0));
     expect(hist.histogram.dataPoints.first.explicitBounds, equals([25.0]));
+  });
+
+  group('retries', () {
+    final metrics = [
+      ResourceMetricsData(
+        resource: sdk.Resource([]),
+        scopeMetrics: [
+          ScopeMetricsData(
+            scope: sdk.InstrumentationScope('my_library', '1.0.0', '', []),
+            metrics: [],
+          ),
+        ],
+      ),
+    ];
+
+    /// Exports once, answering each POST with the next of [responses], and
+    /// checks how many POSTs it took and how the export ended.
+    Future<void> expectExport(List<Future<http.Response> Function()> responses,
+        {required int posts, required sdk.ExportResultCode code}) async {
+      var post = 0;
+      when(() => mockClient.post(uri,
+              body: any(named: 'body'), headers: any(named: 'headers')))
+          .thenAnswer((_) => responses[post++]());
+
+      final result = await OTLPMetricExporter(uri,
+              httpClient: mockClient, timeoutMilliseconds: 10)
+          .export(metrics);
+
+      expect(post, posts);
+      expect(result.code, code);
+    }
+
+    Future<http.Response> Function() status(int code) =>
+        () async => http.Response('', code);
+
+    test('retries an overloaded collector', () async {
+      await expectExport([status(503), status(200)],
+          posts: 2, code: sdk.ExportResultCode.success);
+    });
+
+    test('does not retry a timed out request', () async {
+      await expectExport([() => Completer<http.Response>().future, status(200)],
+          posts: 1, code: sdk.ExportResultCode.failed);
+    });
+
+    test('does not retry a network failure', () async {
+      await expectExport(
+          [() => Future.error(http.ClientException('stalled')), status(200)],
+          posts: 1, code: sdk.ExportResultCode.failed);
+    });
   });
 }

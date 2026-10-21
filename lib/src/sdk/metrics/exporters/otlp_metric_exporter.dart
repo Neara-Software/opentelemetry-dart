@@ -68,47 +68,43 @@ class OTLPMetricExporter implements MetricExporter {
     var retries = 0;
     const retryableCodes = [429, 502, 503, 504];
 
+    final body = pb_metric_service.ExportMetricsServiceRequest(
+      resourceMetrics: _metricsToProtobuf(metrics),
+    ).writeToBuffer();
+    final reqHeaders = {'Content-Type': 'application/x-protobuf'}
+      ..addAll(headers);
+
+    // Only an overloaded collector is retried here. A network failure or
+    // timeout fails at once: retrying would only add requests to a stalled
+    // network, and the caller backs off instead.
     while (true) {
+      var requestFuture = client.post(uri, body: body, headers: reqHeaders);
+      if (timeoutMilliseconds > 0) {
+        requestFuture =
+            requestFuture.timeout(Duration(milliseconds: timeoutMilliseconds));
+      }
+
+      final http.Response response;
       try {
-        final body = pb_metric_service.ExportMetricsServiceRequest(
-          resourceMetrics: _metricsToProtobuf(metrics),
-        );
+        response = await requestFuture;
+      } on Exception catch (e) {
+        _log.warning('Failed to export metrics.', e);
+        rethrow;
+      }
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return;
+      }
 
-        final reqHeaders = {'Content-Type': 'application/x-protobuf'}
-          ..addAll(headers);
-
-        var requestFuture =
-            client.post(uri, body: body.writeToBuffer(), headers: reqHeaders);
-        if (timeoutMilliseconds > 0) {
-          requestFuture = requestFuture
-              .timeout(Duration(milliseconds: timeoutMilliseconds));
-        }
-
-        final response = await requestFuture;
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          return;
-        }
-
-        if (retryableCodes.contains(response.statusCode) &&
-            retries < maxRetries) {
-          retries++;
-          final backoff = min(100 * pow(2, retries), 2000).toInt();
-          await Future.delayed(Duration(milliseconds: backoff));
-          continue;
-        }
-
-        throw Exception(
-            'Collector responded with HTTP status code ${response.statusCode}');
-      } catch (e) {
-        if (retries >= maxRetries) {
-          _log.warning(
-              'Failed to export metrics after $maxRetries retries.', e);
-          rethrow;
-        }
+      if (retryableCodes.contains(response.statusCode) &&
+          retries < maxRetries) {
         retries++;
         final backoff = min(100 * pow(2, retries), 2000).toInt();
         await Future.delayed(Duration(milliseconds: backoff));
+        continue;
       }
+
+      throw Exception(
+          'Collector responded with HTTP status code ${response.statusCode}');
     }
   }
 
