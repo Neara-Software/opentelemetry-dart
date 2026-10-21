@@ -14,7 +14,7 @@ class TestSpanExporter extends SpanExporter {
   bool isShutdown = false;
 
   @override
-  void export(List<ReadOnlySpan> spans) {
+  Future<void> export(List<ReadOnlySpan> spans) async {
     this.spans.addAll(spans);
   }
 

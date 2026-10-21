@@ -1,6 +1,8 @@
 // Copyright 2021-2022 Workiva.
 // Licensed under the Apache License, Version 2.0. Please see https://github.com/Workiva/opentelemetry-dart/blob/master/LICENSE for more information
 
+import 'dart:async';
+
 import '../../../api/context/context.dart';
 import '../../../api/trace/trace_flags.dart';
 import '../exporters/span_exporter.dart';
@@ -26,7 +28,7 @@ class SimpleSpanProcessor implements SpanProcessor {
     final isSampled =
         span.spanContext.traceFlags & TraceFlags.sampled == TraceFlags.sampled;
     if (isSampled) {
-      _exporter.export([span]);
+      unawaited(_exporter.export([span]));
     }
   }
 

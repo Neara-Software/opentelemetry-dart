@@ -25,7 +25,7 @@ class ConsoleExporter implements sdk.SpanExporter {
   }
 
   @override
-  void export(List<sdk.ReadOnlySpan> spans) {
+  Future<void> export(List<sdk.ReadOnlySpan> spans) async {
     if (_isShutdown) {
       return;
     }

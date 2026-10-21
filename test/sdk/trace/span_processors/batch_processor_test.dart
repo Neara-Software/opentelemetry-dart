@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0. Please see https://github.com/Workiva/opentelemetry-dart/blob/master/LICENSE for more information
 
 @TestOn('vm')
+import 'dart:async';
+
 import 'package:opentelemetry/api.dart'
     show SpanContext, SpanId, SpanKind, TraceFlags, TraceId, TraceState;
 import 'package:opentelemetry/sdk.dart';
@@ -14,7 +16,7 @@ class TestSpanExporter extends SpanExporter {
   bool isShutdown = false;
 
   @override
-  void export(List<ReadOnlySpan> spans) {
+  Future<void> export(List<ReadOnlySpan> spans) async {
     this.spans.addAll(spans);
   }
 
@@ -24,6 +26,18 @@ class TestSpanExporter extends SpanExporter {
   @override
   void shutdown() {
     isShutdown = true;
+  }
+}
+
+/// Exports asynchronously; each export stays pending until completed.
+class PendingSpanExporter extends TestSpanExporter {
+  final pending = <Completer<void>>[];
+
+  @override
+  Future<void> export(List<ReadOnlySpan> spans) {
+    this.spans.addAll(spans);
+    pending.add(Completer<void>());
+    return pending.last.future;
   }
 }
 
@@ -106,6 +120,28 @@ void main() {
     test('calls exporter.shutdown()', () {
       processor.shutdown();
       expect(exporter.isShutdown, isTrue);
+    });
+  });
+
+  group('scheduled export', () {
+    const delayMillis = 10;
+    Future<void> waitTicks(int n) =>
+        Future.delayed(Duration(milliseconds: delayMillis * n));
+
+    test('waits for a pending export before starting another', () async {
+      final pendingExporter = PendingSpanExporter();
+      final processor = BatchSpanProcessor(pendingExporter,
+          maxExportBatchSize: 1, scheduledDelayMillis: delayMillis)
+        ..onEnd(sampledSpan)
+        ..onEnd(sampledSpan);
+      addTearDown(processor.shutdown);
+
+      await waitTicks(5);
+      expect(pendingExporter.pending, hasLength(1));
+
+      pendingExporter.pending.single.complete();
+      await waitTicks(5);
+      expect(pendingExporter.pending, hasLength(2));
     });
   });
 }
