@@ -4,7 +4,9 @@
 import '../read_only_span.dart';
 
 abstract class SpanExporter {
-  void export(List<ReadOnlySpan> spans);
+  /// Completes when the export finishes, so that callers can avoid starting
+  /// another export before this one completes.
+  Future<void> export(List<ReadOnlySpan> spans);
 
   @Deprecated(
       'This method will be removed in 0.19.0. Use [SpanProcessor] instead.')

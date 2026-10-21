@@ -27,6 +27,8 @@ void main() {
   final uri =
       Uri.parse('https://example.test/s/opentelemetry-collector/v1/traces');
 
+  group('backoff', backoffTests);
+
   group('Send spans with success - ', () {
     late MockHttpClient mockClient;
     setUp(() {
@@ -378,5 +380,57 @@ void main() {
               mockClient.post(uri, body: anything, headers: expectedHeaders))
           .called(1);
     });
+  });
+}
+
+void backoffTests() {
+  final uri = Uri.parse('https://example.test/v1/traces');
+  final span = Span(
+      'foo',
+      api.SpanContext(api.TraceId([1, 2, 3]), api.SpanId([7, 8, 9]),
+          api.TraceFlags.sampled, api.TraceState.empty()),
+      api.SpanId([4, 5, 6]),
+      [],
+      sdk.DateTimeTimeProvider(),
+      sdk.Resource([]),
+      sdk.InstrumentationScope('library_name', 'library_version', '', []),
+      api.SpanKind.client,
+      [],
+      sdk.SpanLimits(),
+      sdk.DateTimeTimeProvider().now)
+    ..end();
+
+  late MockHttpClient mockClient;
+  late sdk.CollectorExporter exporter;
+  setUp(() {
+    mockClient = MockHttpClient();
+    exporter = sdk.CollectorExporter(uri, httpClient: mockClient);
+  });
+  tearDown(() => exporter.shutdown());
+
+  void respond(Future<Response> Function() answer) => when(() => mockClient
+          .post(uri, body: any(named: 'body'), headers: any(named: 'headers')))
+      .thenAnswer((_) => answer());
+
+  Future<void> expectPostsAfterTwoExports(int posts) async {
+    await exporter.export([span]);
+    await exporter.export([span]);
+    verify(() => mockClient.post(uri,
+        body: any(named: 'body'), headers: any(named: 'headers'))).called(posts);
+  }
+
+  test('keeps sending after success', () async {
+    respond(() async => Response('', 200));
+    await expectPostsAfterTwoExports(2);
+  });
+
+  test('keeps sending after a non-retryable rejection', () async {
+    respond(() async => Response('', 400));
+    await expectPostsAfterTwoExports(2);
+  });
+
+  test('backs off after a network failure', () async {
+    respond(() => Future.error(ClientException('stalled')));
+    await expectPostsAfterTwoExports(1);
   });
 }

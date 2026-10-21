@@ -30,6 +30,16 @@ class CollectorExporter implements sdk.SpanExporter {
   final int timeoutMilliseconds;
   var _isShutdown = false;
 
+  static const _minBackoff = Duration(seconds: 5);
+  static const _maxBackoff = Duration(minutes: 1);
+
+  /// Consecutive failed exports, reset by a successful one.
+  var _failureCount = 0;
+
+  /// Pending while backing off after a failure; batches exported meanwhile are
+  /// dropped instead of adding requests to an unresponsive network.
+  Timer? _backoffTimer;
+
   CollectorExporter(
     this.uri, {
     http.Client? httpClient,
@@ -38,7 +48,7 @@ class CollectorExporter implements sdk.SpanExporter {
   }) : client = httpClient ?? http.Client();
 
   @override
-  void export(List<sdk.ReadOnlySpan> spans) {
+  Future<void> export(List<sdk.ReadOnlySpan> spans) async {
     if (_isShutdown) {
       return;
     }
@@ -47,10 +57,29 @@ class CollectorExporter implements sdk.SpanExporter {
       return;
     }
 
-    unawaited(_send(uri, spans));
+    if (_backoffTimer != null) {
+      _log.warning('Dropping ${spans.length} spans while backing off after '
+          '$_failureCount failed exports.');
+      return;
+    }
+
+    if (await _send(uri, spans)) {
+      _failureCount = 0;
+    } else {
+      _startBackoff();
+    }
   }
 
-  Future<void> _send(
+  void _startBackoff() {
+    _failureCount++;
+    final delay = _minBackoff * pow(2, _failureCount - 1);
+    _backoffTimer = Timer(delay > _maxBackoff ? _maxBackoff : delay,
+        () => _backoffTimer = null);
+  }
+
+  /// Returns false when the collector is unreachable or overloaded, i.e. when
+  /// the request failed, timed out or ran out of retries.
+  Future<bool> _send(
     Uri uri,
     List<sdk.ReadOnlySpan> spans,
   ) async {
@@ -72,18 +101,18 @@ class CollectorExporter implements sdk.SpanExporter {
             ? await request.timeout(Duration(milliseconds: timeoutMilliseconds))
             : await request;
         if (response.statusCode == 200) {
-          return;
+          return true;
         }
         // If the response is not 200, log a warning
         _log.warning('Failed to export ${spans.length} spans. '
             'HTTP status code: ${response.statusCode}');
         // If the response is not a valid retry code, do not retry
         if (!valid_retry_codes.contains(response.statusCode)) {
-          return;
+          return true;
         }
       } catch (e) {
         _log.warning('Failed to export ${spans.length} spans. $e');
-        return;
+        return false;
       }
       // Exponential backoff with jitter
       final delay =
@@ -92,6 +121,7 @@ class CollectorExporter implements sdk.SpanExporter {
     }
     _log.severe(
         'Failed to export ${spans.length} spans after $maxRetries retries');
+    return false;
   }
 
   Duration calculateJitteredDelay(int retries, Duration baseDelay) {
@@ -289,6 +319,7 @@ class CollectorExporter implements sdk.SpanExporter {
   @override
   void shutdown() {
     _isShutdown = true;
+    _backoffTimer?.cancel();
     client.close();
   }
 }

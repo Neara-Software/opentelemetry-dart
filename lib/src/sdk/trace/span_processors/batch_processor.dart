@@ -28,6 +28,10 @@ class BatchSpanProcessor implements SpanProcessor {
 
   bool _isShutdown = false;
 
+  /// Set while an asynchronous export is pending. Scheduled exports are
+  /// skipped meanwhile so that a stalled network does not pile up requests.
+  bool _isExporting = false;
+
   BatchSpanProcessor(this._exporter,
       {int maxExportBatchSize = _DEFAULT_MAXIMUM_BATCH_SIZE,
       int scheduledDelayMillis = _DEFAULT_EXPORT_DELAY})
@@ -43,7 +47,7 @@ class BatchSpanProcessor implements SpanProcessor {
       return;
     }
     while (_spanBuffer.isNotEmpty) {
-      _exportBatch(_timer);
+      _exportNextBatch();
     }
   }
 
@@ -82,14 +86,19 @@ class BatchSpanProcessor implements SpanProcessor {
   }
 
   void _exportBatch(Timer timer) {
-    if (_spanBuffer.isEmpty) {
+    if (_isExporting || _spanBuffer.isEmpty) {
       return;
     }
+    _exportNextBatch();
+  }
 
+  void _exportNextBatch() {
     final batchSize = min(_spanBuffer.length, _maxExportBatchSize);
     final batch = _spanBuffer.sublist(0, batchSize);
     _spanBuffer.removeRange(0, batchSize);
 
-    _exporter.export(batch);
+    _isExporting = true;
+    unawaited(
+        _exporter.export(batch).whenComplete(() => _isExporting = false));
   }
 }
