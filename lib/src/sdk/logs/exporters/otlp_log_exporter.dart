@@ -23,12 +23,17 @@ class OTLPLogExporter implements sdk.LogRecordExporter {
   final Uri uri;
   final http.Client client;
   final Map<String, String> headers;
+
+  /// Timeout duration for the request in milliseconds.
+  /// Set to 0 or a negative value to disable timeout.
+  final int timeoutMilliseconds;
   var _isShutdown = false;
 
   OTLPLogExporter(
     this.uri, {
     http.Client? httpClient,
     this.headers = const {},
+    this.timeoutMilliseconds = 10000,
   }) : client = httpClient ?? http.Client();
 
   @override
@@ -67,7 +72,9 @@ class OTLPLogExporter implements sdk.LogRecordExporter {
 
       final headers = {'Content-Type': 'application/x-protobuf'}..addAll(this.headers);
 
-      final response = await client.post(uri, body: body.writeToBuffer(), headers: headers);
+      final request = client.post(uri, body: body.writeToBuffer(), headers: headers);
+      final response =
+          timeoutMilliseconds > 0 ? await request.timeout(Duration(milliseconds: timeoutMilliseconds)) : await request;
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw Exception('Collector responded with HTTP status code ${response.statusCode}');
       }

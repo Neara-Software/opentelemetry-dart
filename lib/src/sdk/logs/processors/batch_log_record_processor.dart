@@ -4,8 +4,11 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:opentelemetry/sdk.dart' as sdk;
+
+import '../../common/export_backoff.dart';
 
 class BatchLogRecordProcessor extends sdk.LogRecordProcessor {
   static const OTEL_BLRP_MAX_EXPORT_BATCH_SIZE = 512;
@@ -18,11 +21,17 @@ class BatchLogRecordProcessor extends sdk.LogRecordProcessor {
   final int exportTimeoutMillis;
   final int maxQueueSize;
   final sdk.LogRecordExporter exporter;
+  final ExportBackoff _backoff;
+  final Logger _log = Logger('opentelemetry.BatchLogRecordProcessor');
 
   final _finishedLogRecords = <sdk.ReadableLogRecord>[];
 
   bool _isShutDown = false;
   Timer? _timer;
+
+  /// Exports in flight. Scheduled flushes wait for these, so that a stalled
+  /// network does not pile up requests.
+  var _pendingExports = 0;
 
   /// Whether a flush is currently scheduled. An idle or shut down processor
   /// must not hold a pending timer.
@@ -35,7 +44,9 @@ class BatchLogRecordProcessor extends sdk.LogRecordProcessor {
     this.scheduledDelayMillis = OTEL_BLRP_SCHEDULE_DELAY,
     this.exportTimeoutMillis = OTEL_BLRP_EXPORT_TIMEOUT,
     this.maxQueueSize = OTEL_BLRP_MAX_QUEUE_SIZE,
-  }) : assert(
+    ExportBackoff? backoff,
+  })  : _backoff = backoff ?? ExportBackoff(),
+        assert(
           maxQueueSize >= maxExportBatchSize,
           'BatchLogRecordProcessor: maxExportBatchSize must be smaller or equal to maxQueueSize',
         );
@@ -55,6 +66,7 @@ class BatchLogRecordProcessor extends sdk.LogRecordProcessor {
   @override
   Future<void> shutdown() async {
     _isShutDown = true;
+    _backoff.cancel();
     await _flushAll();
     await exporter.shutdown();
   }
@@ -83,21 +95,44 @@ class BatchLogRecordProcessor extends sdk.LogRecordProcessor {
   }
 
   Future<void> _flushOneBatch() async {
-    _clearTimer();
     if (_finishedLogRecords.isEmpty) return;
-    final result = _finishedLogRecords.sublist(0, min(maxExportBatchSize, _finishedLogRecords.length));
-    _finishedLogRecords.removeRange(0, result.length);
-    await exporter.export(result);
+    final batch = _finishedLogRecords.sublist(0, min(maxExportBatchSize, _finishedLogRecords.length));
+    _finishedLogRecords.removeRange(0, batch.length);
+
+    _pendingExports++;
+    try {
+      final result = await exporter.export(batch).timeout(Duration(milliseconds: exportTimeoutMillis));
+      if (result.code == sdk.ExportResultCode.success) {
+        _backoff.recordSuccess();
+      } else {
+        _backoff.recordFailure();
+      }
+    } on TimeoutException {
+      _log.warning('Exporting ${batch.length} logs timed out after ${exportTimeoutMillis}ms.');
+      _backoff.recordFailure();
+    } finally {
+      _pendingExports--;
+      _rescheduleIfBuffered();
+    }
   }
 
   void _maybeStartTimer() {
-    if (_timer != null || _isShutDown) return;
+    if (_timer != null || _pendingExports > 0 || _isShutDown) return;
     _timer = Timer(Duration(milliseconds: scheduledDelayMillis), () async {
-      await _flushOneBatch();
-      // Only keep the timer alive while there is still buffered work; otherwise
-      // an idle processor would reschedule itself forever.
-      if (_finishedLogRecords.isNotEmpty) _maybeStartTimer();
+      _timer = null;
+      if (_backoff.isBackingOff) {
+        // The records stay buffered, bounded by maxQueueSize.
+        _rescheduleIfBuffered();
+      } else {
+        await _flushOneBatch();
+      }
     });
+  }
+
+  /// Only keep the timer alive while there is still buffered work; otherwise
+  /// an idle processor would reschedule itself forever.
+  void _rescheduleIfBuffered() {
+    if (_finishedLogRecords.isNotEmpty) _maybeStartTimer();
   }
 
   void _clearTimer() {
