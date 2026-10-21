@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. Please see https://github.com/Workiva/opentelemetry-dart/blob/master/LICENSE for more information
 
 @TestOn('vm')
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:fixnum/fixnum.dart';
@@ -312,5 +313,20 @@ void main() {
       final request = pb_log_service.ExportLogsServiceRequest.fromBuffer(captured[0] as Uint8List);
       expect(request.resourceLogs.single.scopeLogs.single.logRecords.single.body.stringValue, '{a: 1}');
     });
+  });
+
+  test('fails a request that outlives the timeout', () async {
+    mockClient = MockHttpClient();
+    when(() => mockClient.post(uri, body: any(named: 'body'), headers: any(named: 'headers')))
+        .thenAnswer((_) => Completer<http.Response>().future);
+
+    final result = await sdk.OTLPLogExporter(uri, httpClient: mockClient, timeoutMilliseconds: 10).export([
+      sdk.LogRecord(
+          instrumentationScope: sdk.InstrumentationScope('library_name', 'library_version', 'url://schema', []),
+          logRecordLimits: LogRecordLimits())
+    ]);
+
+    expect(result.code, sdk.ExportResultCode.failed);
+    expect(result.error, isA<TimeoutException>());
   });
 }

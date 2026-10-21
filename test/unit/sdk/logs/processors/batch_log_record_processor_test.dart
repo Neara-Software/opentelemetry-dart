@@ -2,10 +2,13 @@
 // Licensed under the Apache License, Version 2.0. Please see https://github.com/Workiva/opentelemetry-dart/blob/master/LICENSE for more information
 
 @TestOn('vm')
+import 'dart:async';
+
 import 'package:fixnum/fixnum.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:opentelemetry/api.dart' as api;
 import 'package:opentelemetry/sdk.dart' as sdk;
+import 'package:opentelemetry/src/sdk/common/export_backoff.dart';
 import 'package:opentelemetry/src/sdk/logs/log_record_limit.dart';
 import 'package:test/test.dart';
 
@@ -181,4 +184,84 @@ void main() {
       expect(processor.hasPendingTimer, isFalse);
     });
   });
+
+  group('backpressure', () {
+    sdk.ExportResult result(sdk.ExportResultCode code) => sdk.ExportResult(code: code);
+
+    test('waits for a pending export before starting another', () async {
+      final pending = Completer<sdk.ExportResult>();
+      final h = _BackpressureHarness(answer: () => pending.future);
+      expect(await h.emitAndCountExports(), 1);
+      expect(await h.emitAndCountExports(), 0);
+
+      pending.complete(result(sdk.ExportResultCode.success));
+      await _BackpressureHarness.waitTicks(5);
+      expect(h.takeExportCount(), 1);
+    });
+
+    for (final row in [
+      [sdk.ExportResultCode.success, 1],
+      [sdk.ExportResultCode.failed, 0],
+    ]) {
+      test('after a ${(row[0] as sdk.ExportResultCode).name} export, sends ${row[1]} more', () async {
+        final h = _BackpressureHarness(answer: () async => result(row[0] as sdk.ExportResultCode));
+        expect(await h.emitAndCountExports(), 1);
+        expect(await h.emitAndCountExports(), row[1]);
+      });
+    }
+
+    test('backs off after an export times out', () async {
+      final h = _BackpressureHarness(
+          answer: () => Completer<sdk.ExportResult>().future, exportTimeoutMillis: _BackpressureHarness.tickMillis);
+      expect(await h.emitAndCountExports(), 1);
+      expect(await h.emitAndCountExports(), 0);
+    });
+  });
+}
+
+/// A processor exporting every [tickMillis] whose exports answer with
+/// [answer], torn down with the test.
+class _BackpressureHarness {
+  static const tickMillis = 10;
+
+  static Future<void> waitTicks(int n) => Future.delayed(const Duration(milliseconds: tickMillis) * n);
+
+  final _backoff = ExportBackoff(minDelay: const Duration(minutes: 1));
+  late final sdk.BatchLogRecordProcessor _processor;
+  var _exports = 0;
+
+  _BackpressureHarness({required Future<sdk.ExportResult> Function() answer, int exportTimeoutMillis = 30000}) {
+    final exporter = MockLogRecordExporter();
+    when(() => exporter.export(any())).thenAnswer((_) {
+      _exports++;
+      return answer();
+    });
+    when(exporter.shutdown).thenAnswer((_) async {});
+    _processor = sdk.BatchLogRecordProcessor(
+        exporter: exporter,
+        scheduledDelayMillis: tickMillis,
+        exportTimeoutMillis: exportTimeoutMillis,
+        backoff: _backoff);
+    // Shut down first: once the backoff is cancelled, a live processor would
+    // flush its buffer into whichever test runs next.
+    addTearDown(_backoff.cancel);
+    addTearDown(_processor.shutdown);
+  }
+
+  /// Emits a record, gives the processor time to export it, and returns the
+  /// number of exports made since the previous count.
+  Future<int> emitAndCountExports() async {
+    _processor.onEmit(sdk.LogRecord(
+      instrumentationScope: sdk.InstrumentationScope('library_name', 'library_version', 'url://schema', []),
+      logRecordLimits: LogRecordLimits(),
+    ));
+    await waitTicks(5);
+    return takeExportCount();
+  }
+
+  int takeExportCount() {
+    final count = _exports;
+    _exports = 0;
+    return count;
+  }
 }
