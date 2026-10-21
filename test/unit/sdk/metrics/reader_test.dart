@@ -2,8 +2,11 @@
 // Licensed under the Apache License, Version 2.0. Please see https://github.com/Workiva/opentelemetry-dart/blob/master/LICENSE for more information
 
 @TestOn('vm')
+import 'dart:async';
+
 import 'package:opentelemetry/api.dart' as api;
 import 'package:opentelemetry/sdk.dart' as sdk;
+import 'package:opentelemetry/src/sdk/common/export_backoff.dart';
 import 'package:opentelemetry/src/sdk/metrics/data/metric_data.dart';
 import 'package:opentelemetry/src/sdk/metrics/exporters/metric_exporter.dart';
 import 'package:opentelemetry/src/sdk/metrics/readers/periodic_exporting_metric_reader.dart';
@@ -111,4 +114,91 @@ void main() {
       expect(exporter.exportedBatches.length, equals(1));
     });
   });
+
+  group('backpressure', () {
+    sdk.ExportResult result(sdk.ExportResultCode code) =>
+        sdk.ExportResult(code: code);
+
+    test('waits for a pending export before starting another', () async {
+      final pending = Completer<sdk.ExportResult>();
+      final h = _BackpressureHarness(answer: () => pending.future);
+      expect(await h.countExportsOverTicks(5), 1);
+
+      pending.complete(result(sdk.ExportResultCode.success));
+      expect(await h.countExportsOverTicks(5), greaterThan(1));
+    });
+
+    for (final row in [
+      [sdk.ExportResultCode.success, greaterThan(1)],
+      [sdk.ExportResultCode.failed, 1],
+    ]) {
+      test('keeps exporting after ${(row[0] as sdk.ExportResultCode).name}: '
+          '${row[1]}', () async {
+        final h = _BackpressureHarness(
+            answer: () async => result(row[0] as sdk.ExportResultCode));
+        expect(await h.countExportsOverTicks(5), row[1]);
+      });
+    }
+
+    test('backs off after an export times out', () async {
+      final h = _BackpressureHarness(
+          answer: () => Completer<sdk.ExportResult>().future,
+          exportTimeout: _BackpressureHarness.tick);
+      expect(await h.countExportsOverTicks(8), 1);
+    });
+  });
+}
+
+/// A reader collecting a recorded counter every [tick], whose exports answer
+/// with [answer], torn down with the test.
+class _BackpressureHarness {
+  static const tick = Duration(milliseconds: 10);
+
+  final _backoff = ExportBackoff(minDelay: const Duration(minutes: 1));
+  late final PeriodicExportingMetricReader _reader;
+  var _exports = 0;
+
+  _BackpressureHarness(
+      {required Future<sdk.ExportResult> Function() answer,
+      Duration exportTimeout = const Duration(seconds: 30)}) {
+    _reader = PeriodicExportingMetricReader(
+        _AnsweringExporter(() {
+          _exports++;
+          return answer();
+        }),
+        exportInterval: tick,
+        exportTimeout: exportTimeout,
+        backoff: _backoff);
+    sdk.MeterProvider(readers: [_reader])
+        .get('test_meter')
+        .createCounter<int>('counter')
+        .add(1);
+    // Shut down first: once the backoff is cancelled, a live reader would
+    // export into whichever test runs next.
+    addTearDown(_backoff.cancel);
+    addTearDown(_reader.shutdown);
+  }
+
+  /// Returns the number of exports made over the next [ticks] ticks.
+  Future<int> countExportsOverTicks(int ticks) async {
+    _exports = 0;
+    await Future.delayed(tick * ticks);
+    return _exports;
+  }
+}
+
+class _AnsweringExporter implements MetricExporter {
+  final Future<sdk.ExportResult> Function() _answer;
+
+  _AnsweringExporter(this._answer);
+
+  @override
+  Future<sdk.ExportResult> export(List<ResourceMetricsData> metrics) =>
+      _answer();
+
+  @override
+  Future<void> forceFlush() async {}
+
+  @override
+  Future<void> shutdown() async {}
 }
